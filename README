@@ -1,0 +1,111 @@
+/*Oncioiu Anamaria Raluca
+**333CA
+**Tema LFA
+*/
+
+--------------------------------------------------------------------------------
+	Rulare:
+--------------------------------------------------------------------------------
+
+	make 
+	./test.sh  (din teste)
+
+	make run 
+		-> cu adaugarea testului corespunzator
+		-> implicit este: ./mtx teste/test/simple_bonus.mt Copy "#>#abba#"
+--------------------------------------------------------------------------------
+	Parsarea
+--------------------------------------------------------------------------------
+
+	Am parsat in flex si am implementat in C++, mai mult pentru structurile de 
+date gata implementate. Pentru parsare am scris definitii pentru toate tipurile 
+de tokeni exact ca in enunt. Pentru ca set este recursiv, deoarece accepta mt cu
+mt-call si mt-trans, am folosit start conditions in felul urmator:
+
+-> daca se gaseste ::=, atunci se trece in starea turingc
+-> daca din starea turingc gaseste o paranteza deschisa, atunci trece in starea
+transitionc
+-> din starea transitionc se trece in starea setc cand se gaseste un set de 
+simboli
+-> din starea setc se poate trece iar in transitionc daca avem de-a face cu 
+masini de tranzitii cu masini de tranzitii in unele seturi (ramuri ale primei
+masini)
+	
+	Memorarea starilor si trecerea dintr-o stare in alta am implementat-o cu 
+functiile specifice stivei pentru flex yy_push_state(STARE) si yy_pop_state().
+
+	Masinile mt-call le parsez in C++, pentru ca nu stiam cum voi retine datele.
+Alfabetul, variabilele si listele de simboli sunt parsate in C++, deoarece nu 
+presupunea decat verificarea unei conditii si anume spatierea. Mi s-a parut mai 
+firesc sa fac asa decat in flex. 
+
+	De asemenea, pe masura ce parsez tokenii, apelez functiile asociate fiecarui
+caz si retin datele in structuri. 
+
+--------------------------------------------------------------------------------
+	Structuri de date
+--------------------------------------------------------------------------------
+
+	Banda este reprezentata ca o structura cu un string pentru simboli si un 
+intreg pentru pozitia capului de citire. 
+	Listele de simboli sunt retinute intr-un vector ca perechi de nume_lista si 
+simboli.
+	Variabilele sunt retinute ca structuri symbol ce contin nume_simbol si simbol.
+
+	Dintr-un fisier .mt se retin intr-un vector masini turing de top. Fiecare 
+masina retine toate masinile din specificatie intr-un vector de masini turing.
+Daca sunt masini de tip mt-call, ele sunt retinute intr-un vector numit mt.
+Daca exista masini de tip mt-trans (indiferent de specificatia lor; adica pot 
+avea masini de mt-trans in ele) se retin liniarizate intr-un vector numit mtset.
+Acest vector apartine de masina de tip TRANSITION din cadrul vectorului mt din 
+specificatia masinii. 
+ 
+ 	Liniarizarea unei masini mt-trans este in felul urmator: fiecare masina 
+contine informatiile despre setul de simboli pentru care s-ar aplica masina si
+adancimea masinii in specificatie (daca exista inca o masina mt-trans intr-un 
+set, atunci adancimea celei de a doua este 1).
+
+--------------------------------------------------------------------------------	
+	Modul de executare al unei masini
+--------------------------------------------------------------------------------
+
+	Se ia specificatia unei masini de top si se executa pe rand cate o masina in 
+functia executeMachine().
+	
+	Daca este elementara, atunci se apeleaza functia executeElementaryMachine()
+care recunoaste pana la 17 tipuri de masini conform enuntului: masina de tip 
+write a unui simbol dat prin referinta, masina left, right si toate celelalte.
+
+	Daca este de tip nume, atunci se apeleaza functia executeTopMachine() pentru
+ca este o masina de top din acel fisier. 
+	
+	Daca este de tip tranzitie, atunci se apeleaza functia executeTransitionMachine().
+Aceasta gaseste masina turing ce apartine de nivelul curent de adancime si cu
+setul de simboli ce se mapeaza pentru banda. Executa la rand toate masinile, 
+pana cand adancimea sau setul de simboli nu mai corespund. Daca masina mt-trans
+contine alte masini mt-trans, se apeleaza functia executeTransitionMachine() 
+pentru masina respectiva. 
+
+	Pentru toate numele temporare dintr-o specificatie se retine intr-un vector
+numit labels niste structuri de tip checkpoint care cunosc numele temporar, 
+adancimea si indexul din cadrul vectorului mtset (mt-trans este liniarizat).
+	
+	In functia executeTransitionMachine():
+	
+	Daca este masina de tip referinta, se verifica in vectorul labels existenta 
+numelui temporar pentru a verifica adancimea masinii. In caz ca are adancime -1,
+asta inseamna ca numele temporar specifica una dintre masinile din vectorul mt.
+Adica un nivel mai jos fata de mt-trans. Daca are adancime diferita de -1, atunci
+numele este al unei masini din specificatia masinii mt-trans. Astfel, se apeleaza
+executeMachine() in primul caz si executeTransitionMachine() in al doilea caz.
+
+	Daca este masina de tip tranzitie, atunci se continua executarea de la indexul
+specificat de masina. 
+
+	In functia executeMachine():
+	
+	Daca este masina de tip nume, atunci se apeleaza executeTopMachine()cu numele 
+masinii respective.
+	Daca este de tip referinta, atunci se ramane in vectorul mt si se continua
+executia de la indexul corespunzator masinii conform label-urilor.	
+	
